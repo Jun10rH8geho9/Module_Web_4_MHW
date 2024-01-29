@@ -1,4 +1,4 @@
-import json
+# import json
 import requests
 
 url = "http://localhost:3000/message"  # Ось зміна шляху на /message

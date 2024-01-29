@@ -3,6 +3,7 @@ import json
 import signal
 import threading
 import mimetypes
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 mimetypes.init()
@@ -35,14 +36,22 @@ class MyHandler(BaseHTTPRequestHandler):
                 self.send_response(302)
                 self.send_header('Location', '/')
                 self.end_headers()
+                print("Отримані дані з POST-запиту:", post_data)
 
                 try:
-                    message = json.loads(post_data.decode('utf-8'))
+                    data_parse = urllib.parse.unquote_plus(post_data.decode('utf-8'))
+                    # Створюємо словник
+                    data_dict = {key: value for key, value in [el.split('=') for el in data_parse.split('&')]}
+                    # print(data_dict)
+                    message_data = json.dumps(data_dict)
                 except json.JSONDecodeError as json_error:
                     raise ValueError(f"Помилка розпізнавання JSON: {json_error}")
 
-                # Зберігаємо повідомлення у файлі
-                self.save_to_file(message)
+                # Тут можна вивести повідомлення перед збереженням у файл
+                print("Отримано нове повідомлення:", message_data)
+
+                # Зберігаємо словник у файлі
+                self.save_to_file(message_data)
                 
                 self.wfile.write(bytes("POST-запит успішно оброблено", 'utf-8'))
             else:
@@ -53,7 +62,7 @@ class MyHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(bytes(f"Помилка обробки POST-запиту: {str(e)}", 'utf-8'))
     
-    def save_to_file(self, message):
+    def save_to_file(self, message_data):
         try:
             # Завантажуємо поточні дані з файлу
             current_data = {}
@@ -64,15 +73,16 @@ class MyHandler(BaseHTTPRequestHandler):
             except FileNotFoundError:
                 pass  # Якщо файл відсутній, просто продовжуємо
 
-            # Додаємо нове повідомлення до словника
+            # Додаємо новий словник до словника
             now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-            current_data[now] = message
+            current_data[now] = json.loads(message_data)
 
             # Зберігаємо оновлені дані у файл
             with open('storage/data.json', 'w') as f:
                 json.dump(current_data, f, indent=4)
 
         except Exception as e:
+            print(f"Помилка при збереженні у файл: {e}")
             raise ValueError(f"Помилка збереження у файл: {e}")
 
 class ThreadedHTTPServer(object):
@@ -85,6 +95,7 @@ class ThreadedHTTPServer(object):
         signal.signal(signal.SIGINT, self.shutdown)
 
     def start(self):
+        print('Запуск сервера...')
         self.thread.start()
 
     def wait_for_thread(self):
