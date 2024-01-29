@@ -11,7 +11,7 @@ headers = {
     "Content-Type": "application/json"
 }
 
-response = requests.post(url, data=json.dumps(data), headers=headers)  # Замінено data=json.dumps(data) на json=data
+response = requests.post(url, json=data, headers=headers)  # Замінено data=json.dumps(data) на json=data
 
 print(response.status_code)
 print(response.text)
