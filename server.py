@@ -23,15 +23,17 @@ class MyHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
             self.wfile.write(bytes(file_to_open, 'utf-8'))
+
     
     # Обробка форми
     def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
+        size = self.headers.get("Content-Length")
+        post_data = self.rfile.read(int(size))
+        
         try:
             if post_data:
-                self.send_response(200)
-                self.send_header('Content-Type', 'text/plain')
+                self.send_response(302)
+                self.send_header('Location', '/')
                 self.end_headers()
 
                 try:
@@ -39,19 +41,39 @@ class MyHandler(BaseHTTPRequestHandler):
                 except json.JSONDecodeError as json_error:
                     raise ValueError(f"Помилка розпізнавання JSON: {json_error}")
 
-                with open('storage/data.json', 'a') as f:
-                    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
-                    json.dump({now: message}, f)
-                    f.write('\n')
-
+                # Зберігаємо повідомлення у файлі
+                self.save_to_file(message)
+                
                 self.wfile.write(bytes("POST-запит успішно оброблено", 'utf-8'))
             else:
                 raise ValueError("Порожні дані JSON")
         except Exception as e:
             self.send_response(500)
-            self.send_header('Content-Type', 'text/plain')
+            self.send_header('Location', '/')
             self.end_headers()
             self.wfile.write(bytes(f"Помилка обробки POST-запиту: {str(e)}", 'utf-8'))
+    
+    def save_to_file(self, message):
+        try:
+            # Завантажуємо поточні дані з файлу
+            current_data = {}
+            
+            try:
+                with open('storage/data.json', 'r') as f:
+                    current_data = json.load(f)
+            except FileNotFoundError:
+                pass  # Якщо файл відсутній, просто продовжуємо
+
+            # Додаємо нове повідомлення до словника
+            now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+            current_data[now] = message
+
+            # Зберігаємо оновлені дані у файл
+            with open('storage/data.json', 'w') as f:
+                json.dump(current_data, f, indent=4)
+
+        except Exception as e:
+            raise ValueError(f"Помилка збереження у файл: {e}")
 
 class ThreadedHTTPServer(object):
     def __init__(self, host, port):
